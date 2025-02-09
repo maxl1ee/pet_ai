@@ -2,11 +2,7 @@ from fastapi import APIRouter, HTTPException
 import httpx
 
 from app.config.settings import get_settings
-<<<<<<< HEAD
 from ...models.pet import Pet, React, InteractionRequest, ImageGenerationRequest, GeneratedImage, ImageResponse
-=======
-from ...models.pet import Pet, React, InteractionRequest, ImageGenerationRequest
->>>>>>> origin/main
 from ...services.pet_service import PetService
 from ...core.pet_logic import update_pet_status
 from typing import Any
