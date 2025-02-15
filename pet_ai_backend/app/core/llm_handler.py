@@ -21,7 +21,11 @@ class LLMHandler:
                 "system",
                 """Given a pet with characteristics and current status:\n{pet_description}\n, answer with a pet's reaction to the user's act with it.
                 Note that status shouldn't change too drastically for example from irritated to extreme happy, there should be a transfer
-                period to go through calmness between extreme emotion/status. Wrap the output in `json` tags\n{format_instructions}""",
+                period to go through calmness between extreme emotion/status. 
+                Also make the dog's reaction even more drastic to increase the emotional fluctuations of users, e.g., if the pet is menat to feel
+                happy, make it look a bit bitchy/funny/funky and when it's sad, make it look sooooo sad/crying/something that will make a person feel bad. 
+                Every emotion should be more detailed described through the facial expression or the motion
+                Wrap the output in `json` tags\n{format_instructions}""",
             ),
             ("human", "{interaction}"),
         ]).partial(format_instructions=self.parser.get_format_instructions())

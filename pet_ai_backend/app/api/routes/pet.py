@@ -1,56 +1,68 @@
 from fastapi import APIRouter, HTTPException
 import httpx
+from typing import Any, List
 
 from app.config.settings import get_settings
-from ...models.pet import Pet, React, InteractionRequest, ImageGenerationRequest, GeneratedImage, ImageResponse
-from ...services.pet_service import PetService
-from ...core.pet_logic import update_pet_status
-from typing import Any
-import asyncio
-
-settings = get_settings()
-
-router = APIRouter()
-pet_service = PetService()
-
-# Initialize pet state
-current_pet = Pet(
-    gender="female",
-    age=3,
-    personalities=["playful", "friendly", "energetic"],
-    physical_status="active",
-    mental_status="content",
-    current_react="Emotion: calm, Level: 5, Movement: sitting quietly"
+from ...models.pet import (
+    Pet, React, InteractionRequest, ImageGenerationRequest, ImageResponse,
+    Emotion, EmotionType, Personality, Knowledge, Appearance, Environment
 )
-
-@router.get("/status")
-async def get_pet_status():
-    return current_pet
-
-@router.post("/interact")
-async def interact_with_pet(request: InteractionRequest) -> Any:
-    global current_pet
-    try:
-        new_react = await pet_service.handle_interaction(
-            pet=current_pet,
-            interaction=request.interaction
-        )
-        current_pet = update_pet_status(current_pet, new_react)
-        return new_react
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
-
+from ...services.pet_service import PetService
 from ...core.image_handler import ImageHandler
 
-# Initialize handlers
-image_handler = ImageHandler()
+from fastapi import APIRouter, Depends, HTTPException
+from ...services.pet_service import PetService
+from ...models.pet import Pet, React, InteractionRequest
+from motor.motor_asyncio import AsyncIOMotorDatabase
+from ...db.database import db
+from ...services.utils import format_pet_prompt
 
-@router.post("/generate-image")
-async def generate_pet_image(request: ImageGenerationRequest) -> ImageResponse:
+router = APIRouter()
+
+
+@router.get("/{pet_id}/status")
+async def get_pet_status(pet_id: str,pet_service: PetService = Depends()):
+    pet = await pet_service.get_pet(pet_id)
+    if not pet:
+        raise HTTPException(status_code=404, detail="Pet not found")
+    return pet
+
+@router.post("/{pet_id}/interact", response_model=React)
+async def interact_with_pet(
+    pet_id: str,
+    interaction: InteractionRequest,
+    pet_service: PetService = Depends()
+):
+    """Handle an interaction with a pet."""
     try:
-        detailed_prompt = f"{request.base_description}. "
-        detailed_prompt += f"The pet is {request.emotion} and {request.movement}."
+        # Get the pet
+        pet = await pet_service.get_pet(pet_id)
+        if not pet:
+            raise HTTPException(status_code=404, detail="Pet not found")
         
+        # Handle the interaction
+        new_react = await pet_service.handle_interaction(
+            pet=pet,
+            interaction=interaction.interaction
+        )
+        
+        return new_react
+        
+    except Exception as e:
+        print(f"Error in interact_with_pet: {e}")
+        raise HTTPException(status_code=500, detail="Internal server error")
+
+@router.post("/{pet_id}/generate-image")
+async def generate_pet_image(pet_id: str, pet_service: PetService = Depends()) -> ImageResponse:
+    """Generate image based on pet's current state"""
+    try:
+        pet = await pet_service.get_pet(pet_id)
+        if not pet:
+            raise HTTPException(status_code=404, detail="Pet not found")
+        
+        detailed_prompt = format_pet_prompt(pet)
+
+        image_handler = ImageHandler()
         response = await image_handler.generate_image(detailed_prompt)
         
         if response and 'predictions' in response:
@@ -60,3 +72,27 @@ async def generate_pet_image(request: ImageGenerationRequest) -> ImageResponse:
             
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+@router.get("/debug")
+async def debug_database():
+    try:
+        if db.db is None:
+            await db.connect_to_database()
+        
+        # List all collections
+        collections = await db.db.list_collection_names()
+        
+        # Count documents in pets collection
+        pet_count = await db.db.pets.count_documents({})
+        
+        # Get first pet for verification
+        first_pet = await db.db.pets.find_one()
+        
+        return {
+            "collections": collections,
+            "pet_count": pet_count,
+            "first_pet": str(first_pet) if first_pet else None,
+            "database_name": db.db.name
+        }
+    except Exception as e:
+        return {"error": str(e)}

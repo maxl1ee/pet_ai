@@ -1,4 +1,4 @@
-#!/Users/max860113/Desktop/pet_ai/pet_ai_backend/venv/bin/python3.8
+#!/Users/crazymaplestudio/Desktop/pet_ai-main/pet_ai_backend/venv/bin/python3.13
 # -*- coding: utf-8 -*-
 import re
 import sys

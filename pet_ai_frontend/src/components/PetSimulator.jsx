@@ -4,6 +4,17 @@ import { Input } from './ui/input.tsx';
 import { Button } from './ui/button.tsx';
 import petService from '../services/petService';
 
+const formatStatus = (status) => {
+  if (typeof status === 'object' && status !== null) {
+    if (status.description && status.level) {
+      return `${status.description} (Level: ${status.level})`;
+    }
+    return JSON.stringify(status);
+  }
+  return status;
+};
+
+
 const PetSimulator = () => {
   const [petStatus, setPetStatus] = useState(null);
   const [interaction, setInteraction] = useState('');
@@ -15,16 +26,11 @@ const PetSimulator = () => {
   const generatePetImage = async (emotion, movement, baseDescription) => {
     setImageLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/pet/generate-image', {
+      const response = await fetch('http://localhost:8000/pet/67a9b0f6e1006741fdfefd25/generate-image', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          emotion,
-          movement,
-          base_description: baseDescription
-        }),
       });
 
       const data = await response.json();
@@ -45,7 +51,7 @@ const PetSimulator = () => {
 
   const fetchPetStatus = async () => {
     try {
-      const response = await fetch('http://localhost:8000/pet/status');
+      const response = await fetch('http://localhost:8000/pet/67a9b0f6e1006741fdfefd25/status');
       const data = await response.json();
       setPetStatus(data);
       setError(null);
@@ -61,7 +67,7 @@ const PetSimulator = () => {
 
     setLoading(true);
     try {
-      const response = await fetch('http://localhost:8000/pet/interact', {
+      const response = await fetch('http://localhost:8000/pet/67a9b0f6e1006741fdfefd25/interact', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -76,11 +82,7 @@ const PetSimulator = () => {
       
       // Then generate new image based on the updated status
       if (petStatus) {
-        const baseDescription = `A ${petStatus.gender} pet, ${petStatus.age} years old, with ${petStatus.personalities.join(', ')} personality. cream color cocker spaniel.`;
-        const emotion = petStatus.current_react.split(',')[0].replace('Emotion:', '').trim();
-        const movement = petStatus.current_react.split(',')[2].replace('Movement:', '').trim();
-        
-        await generatePetImage(emotion, movement, baseDescription);
+        await generatePetImage();
       }
       
       setInteraction('');
@@ -97,17 +99,16 @@ const PetSimulator = () => {
   useEffect(() => {
     const initializePet = async () => {
       await fetchPetStatus();
-      if (!currentPetImage && petStatus) {
-        const baseDescription = `A ${petStatus.gender} pet, ${petStatus.age} years old, with ${petStatus.personalities.join(', ')} personality. cream color cocker spaniel.`;
-        const emotion = petStatus.current_react.split(',')[0].replace('Emotion:', '').trim();
-        const movement = petStatus.current_react.split(',')[2].replace('Movement:', '').trim();
-        
-        await generatePetImage(emotion, movement, baseDescription);
+      if (!currentPetImage) {
+        console.log(petStatus);
+        await generatePetImage();
       }
     };
-    
     initializePet();
-  }, []); // Only run once on mount
+  }, []);
+  
+  
+  
 
   if (!petStatus) return <div className="p-4">Loading...</div>;
 
@@ -153,17 +154,16 @@ const PetSimulator = () => {
               <div className="flex flex-wrap gap-2">
                 {petStatus.personalities.map((trait, index) => (
                   <span key={index} className="bg-primary/10 px-2 py-1 rounded-full text-sm">
-                    {trait}
+                    {trait.description} (Level: {trait.level})
                   </span>
                 ))}
               </div>
             </div>
 
             <div>
-              <p className="font-semibold">Current Status:</p>
-              <p>Physical: {petStatus.physical_status}</p>
-              <p>Mental: {petStatus.mental_status}</p>
-              <p>Reaction: {petStatus.current_react}</p>
+              <p className="font-semibold">Current Emotion:</p>
+              <p>Physical: {petStatus.current_react.physical_status}</p>
+              <p>Mental: {petStatus.current_react.mental_status}</p>
             </div>
           </div>
 
